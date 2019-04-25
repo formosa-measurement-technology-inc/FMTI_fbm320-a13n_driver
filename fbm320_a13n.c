@@ -58,10 +58,40 @@
 
 #include "fbm320_a13n.h"
 
+#ifdef SPI
+#define FBM320_BUS_READ fbm320_spi_writeblock 
+#define FBM320_BUS_WRITE fbm320_spi_readblock
+#endif
+#if defined(I2C) || defined(GPIO_I2C)
+#define FBM320_BUS_READ fbm320_i2c_readblock 
+#define FBM320_BUS_WRITE fbm320_i2c_writeblock
+#endif
+
+#define FBM320_DELAY_US CLK_SysTickDelay
+#define FBM320_CONVERSION_TIME_TEMP FBM320_CONVERSION_usTIME_OSR1024
+
+/* Setting the configure of pressure reading
+For example:
+If sampling rate is setted as OSR_1024:
+#define FBM320_CONVERSION_TIME_PRESS FBM320_CONVERSION_usTIME_OSR1024   
+#define FBM320_CMD_START_PRESS FBM320_MEAS_PRESS_OVERSAMP_0
+If sampling rate is setted as OSR_2048:
+#define FBM320_CONVERSION_TIME_PRESS FBM320_CONVERSION_usTIME_OSR2048   
+#define FBM320_CMD_START_PRESS FBM320_MEAS_PRESS_OVERSAMP_1
+If sampling rate is setted as OSR_4096:
+#define FBM320_CONVERSION_TIME_PRESS FBM320_CONVERSION_usTIME_OSR4096   
+#define FBM320_CMD_START_PRESS FBM320_MEAS_PRESS_OVERSAMP_2
+If sampling rate is setted as OSR_8192: 
+#define FBM320_CONVERSION_TIME_PRESS FBM320_CONVERSION_usTIME_OSR8192   
+#define FBM320_CMD_START_PRESS FBM320_MEAS_PRESS_OVERSAMP_3
+*/
+#define FBM320_CONVERSION_TIME_PRESS FBM320_CONVERSION_usTIME_OSR1024   
+#define FBM320_CMD_START_PRESS FBM320_MEAS_PRESS_OVERSAMP_0
+
 extern volatile uint32_t TMR0_Ticks;
 extern volatile uint32_t fbm320_update_rdy;
 
-static void fbm320_us_delay(uint32_t us);
+//static void fbm320_us_delay(uint32_t us);
 #ifdef SPI
 static uint8_t fbm320_spi_writeblock(uint8_t reg_addr, uint32_t cnt, const uint8_t *reg_data);
 static uint8_t fbm320_spi_readblock(uint8_t reg_addr, uint32_t cnt, uint8_t *reg_data);
@@ -73,11 +103,9 @@ static int32_t fbm320_startMeasure_temp(struct fbm320_data *barom);
 static int32_t fbm320_get_raw_temperature(struct fbm320_data *barom);
 static int32_t fbm320_startMeasure_press(struct fbm320_data *barom);
 static int32_t fbm320_get_raw_pressure(struct fbm320_data *barom);
-static int32_t fbm320_read_store_otp_data(struct fbm320_data *barom);
-static int32_t fbm320_version_identification(struct fbm320_data *barom);
-static int32_t fbm320_set_oversampling_rate(struct fbm320_data *barom
-        , enum fbm320_osr osr_setting);
-static int32_t fbm320_chipid_check(struct fbm320_data *barom);
+static int8_t fbm320_read_store_otp_data(struct fbm320_data *barom);
+static int8_t fbm320_version_identification(void);
+static int32_t fbm320_chipid_check(void);
 static int32_t fbm320_calculation(struct fbm320_data *barom);
 /**
  * { pointer of fbm320 data }
@@ -218,19 +246,7 @@ static uint8_t fbm320_i2c_readblock(uint8_t reg_addr, uint32_t cnt, uint8_t *reg
 #endif
 
 /**
- * @brief      { API for fbm320 delay }
- *
- * @param[in]  us    { delay time in microseconds }
- */
-static void fbm320_us_delay(uint32_t us)
-{
-	/* This is just an example. This function have to
-	   be implemented according to your platform. */
-	CLK_SysTickDelay(us);
-}
-/**
- * @brief      { API for assigning function pointers, as bus read/write
- *               and delay. }
+ * @brief      { API for FBM320 initializing }
  *
  * @return     { 0, succeeded
  *              -1, failed }
@@ -238,84 +254,67 @@ static void fbm320_us_delay(uint32_t us)
 int8_t fbm320_init(void)
 {
 	int32_t err;
-#ifdef SPI
-	fbm320_barom.bus_write = fbm320_spi_writeblock;
-	fbm320_barom.bus_read = fbm320_spi_readblock;
-#else
-	fbm320_barom.bus_write = fbm320_i2c_writeblock;
-	fbm320_barom.bus_read = fbm320_i2c_readblock;
-#endif
-	fbm320_barom.delay_usec = fbm320_us_delay;
-
+    
 	/* The minimum start up time of fbm320 is 15ms */
-	barom->delay_usec(1000 * 15);
+	FBM320_DELAY_US(1000 * 15);
 
-	err = fbm320_chipid_check(barom);
+	err = fbm320_chipid_check();
 	if (err) {
 		err = -1;
-//		goto err_chip_id_chk;
+		goto err_chip_id_chk;
 	}
 
-	err = fbm320_version_identification(barom);
-	if (err) {
+	err = fbm320_version_identification();
+	if (err == hw_ver_unknown) {
 		err = -2;
-//		goto err_version_identification;
+		goto err_version_identification;
 	}
 
 	err = fbm320_read_store_otp_data(barom);
 	if (err) {
 		err = -3;
-//		goto err_read_otp;
+		goto err_read_otp;
 	}
-	err = 0;
+err_chip_id_chk:
+err_version_identification:
+err_read_otp:
 
-	fbm320_set_oversampling_rate(barom, OVERSAMPLING_RATE_DEFAULT);
-
-//err_chip_id_chk:
-//err_version_identification:
-//err_read_otp:
-
-#ifdef DEBUG_FBM320
-	printf("fbm320_init; fbm320_ID:%#x,err:%d\n", fbm320_barom.chip_id, err);
-#endif//DEBUG_FBM320
 	if (err != 0) {
-		return -1;
-	}
+		err = -1;
+#ifdef DEBUG_FBM320
+	printf("fbm320_init failed!\n");
+#endif//DEBUG_FBM320        
+	} else {
 #ifdef DEBUG_FBM320
 	printf("fbm320_init succeeded!\n");
 #endif//DEBUG_FBM320	
-	return err;
+	err = 0;
+    }
+    
+    return err;
 }
-
-int32_t fbm320_read_raw_t(void)
-{
-	return barom->raw_temperature;
-}
+ 
 /**
  * @brief      API for read real temperature value in unit of degree Celsius
  *
  * @return     { temperature value in unit of degree Celsius }
  */
-float fbm320_read_temperature(void)
-{
-	fbm320_calculation(barom);
-	return barom->real_temperature * 0.01;
-}
+//float fbm320_read_temperature(void)
+//{
+//	fbm320_calculation(barom);
+//	return barom->real_temperature * 0.01;
+//}
 
-int32_t fbm320_read_raw_p(void)
-{
-	return barom->raw_pressure;
-}
 /**
  * @brief      API for read real pressure value in unit of Pa
  *
  * @return     { pressure value in unit of Pa }
  */
-float fbm320_read_pressure(void)
-{
-	fbm320_calculation(barom);
-	return barom->real_pressure;
-}
+//float fbm320_read_pressure(void)
+//{
+//	fbm320_calculation(barom);
+//	return barom->real_pressure;
+//}
 /**
  * @brief      API for read real temperature and pressure values
  *             stored in fbm320_data structure
@@ -347,7 +346,7 @@ static int32_t fbm320_startMeasure_temp(struct fbm320_data *barom)
 	uint8_t bus_wr_data;
 
 	bus_wr_data = FBM320_MEAS_TEMP;
-	err = barom->bus_write(FBM320_TAKE_MEAS_REG, sizeof(uint8_t), &bus_wr_data);
+	err = FBM320_BUS_WRITE(FBM320_TAKE_MEAS_REG, sizeof(uint8_t), &bus_wr_data);
 
 	return err;
 }
@@ -365,7 +364,7 @@ static int32_t fbm320_get_raw_temperature(struct fbm320_data *barom)
 	int32_t err;
 	uint8_t buf[3] = {0};
 
-	err = barom->bus_read(FBM320_READ_MEAS_REG_U, 3 * sizeof(uint8_t), buf);
+	err = FBM320_BUS_READ(FBM320_READ_MEAS_REG_U, 3 * sizeof(uint8_t), buf);
 	barom->raw_temperature = (buf[0] * 256 * 256) + (buf[1] * 256) + buf[2];
 
 #ifdef DEBUG_FBM320
@@ -386,8 +385,8 @@ static int32_t fbm320_startMeasure_press(struct fbm320_data *barom)
 	int32_t err;
 	uint8_t bus_wr_data;
 
-	bus_wr_data = barom->cmd_start_p;
-	err = barom->bus_write(FBM320_TAKE_MEAS_REG, sizeof(uint8_t), &bus_wr_data);
+	bus_wr_data = FBM320_CMD_START_PRESS;
+	err = FBM320_BUS_WRITE(FBM320_TAKE_MEAS_REG, sizeof(uint8_t), &bus_wr_data);
 
 	return err;
 }
@@ -405,7 +404,7 @@ static int32_t fbm320_get_raw_pressure(struct fbm320_data *barom)
 	int32_t err;
 	uint8_t buf[3] = {0};
 
-	err = barom->bus_read(FBM320_READ_MEAS_REG_U, 3 * sizeof(uint8_t), buf);
+	err = FBM320_BUS_READ(FBM320_READ_MEAS_REG_U, 3 * sizeof(uint8_t), buf);
 
 	barom->raw_pressure = (buf[0] * 256 * 256) + (buf[1] * 256) + buf[2];
 
@@ -422,24 +421,26 @@ static int32_t fbm320_get_raw_pressure(struct fbm320_data *barom)
  *
  * @return     { description_of_the_return_value }
  */
-static int32_t fbm320_read_store_otp_data(struct fbm320_data *barom)
+static int8_t fbm320_read_store_otp_data(struct fbm320_data *barom)
 {
 	uint8_t tmp[FBM320_CALIBRATION_DATA_LENGTH] = {0};
 	uint16_t R[10] = {0};
-	int32_t status;
+	int8_t status;
 
 	struct fbm320_calibration_data *cali = &(barom->calibration);
 
-	status = barom->bus_read(FBM320_CALIBRATION_DATA_START0,
+	status = FBM320_BUS_READ(FBM320_CALIBRATION_DATA_START0,
 	                         (FBM320_CALIBRATION_DATA_LENGTH - 2) * sizeof(uint8_t),
 	                         (uint8_t *)tmp);
-
+    
 	if (status < 0)
 		goto exit;
-	status = barom->bus_read(FBM320_CALIBRATION_DATA_START1, sizeof(uint8_t), (uint8_t *)tmp + 18 );
+	status = FBM320_BUS_READ(FBM320_CALIBRATION_DATA_START1, sizeof(uint8_t), (uint8_t *)tmp + 18 );
+    
 	if (status < 0)
 		goto exit;
-	status = barom->bus_read(FBM320_CALIBRATION_DATA_START2, sizeof(uint8_t), (uint8_t *)tmp + 19);
+	status = FBM320_BUS_READ(FBM320_CALIBRATION_DATA_START2, sizeof(uint8_t), (uint8_t *)tmp + 19);
+    
 	if (status < 0)
 		goto exit;
 
@@ -505,19 +506,18 @@ exit:
  *
  * @return     { description_of_the_return_value }
  */
-static int32_t fbm320_version_identification(struct fbm320_data *barom)
+static int8_t fbm320_version_identification(void)
 {
-	int32_t err;
 	uint8_t buf[2] = {0};
-	uint8_t version = 0;
+	int8_t version = 0;
 	uint8_t bus_wr_data;
 
 	bus_wr_data = FBM320_SOFTRESET_CMD;
-	barom->bus_write(FBM320_SOFTRESET_REG, sizeof(uint8_t), &bus_wr_data);
-	barom->delay_usec(1000 * 15); /* The minimum start up time of fbm320 is
+	FBM320_BUS_WRITE(FBM320_SOFTRESET_REG, sizeof(uint8_t), &bus_wr_data);
+	FBM320_DELAY_US(1000 * 15); /* The minimum start up time of fbm320 is
 15ms */
-	err = barom->bus_read(FBM320_TAKE_MEAS_REG, sizeof(uint8_t), buf);
-	err = barom->bus_read(FBM320_VERSION_REG, sizeof(uint8_t), buf + 1);
+	FBM320_BUS_READ(FBM320_TAKE_MEAS_REG, sizeof(uint8_t), buf);
+	FBM320_BUS_READ(FBM320_VERSION_REG, sizeof(uint8_t), buf + 1);
 
 	version = ((buf[0] & 0xC0) >> 6) | ((buf[1] & 0x70) >> 2);
 #ifdef DEBUG_FBM320
@@ -526,110 +526,55 @@ static int32_t fbm320_version_identification(struct fbm320_data *barom)
 
 	switch (version)	{
 	case hw_ver_b1:
-		barom->hw_ver = hw_ver_b1;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is B1.\n", FBM320_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b2:
-		barom->hw_ver = hw_ver_b2;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is B2.\n", FBM320_NAME);
 #endif//DEBUG_FBM320			
 		break;
 	case hw_ver_b3:
-		barom->hw_ver = hw_ver_b3;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is B3.\n", FBM320_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b4:
-		barom->hw_ver = hw_ver_b4;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is B4.\n", FBM320_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b5:
-		barom->hw_ver = hw_ver_b5;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is B5.\n", FBM320_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	default:
-		barom->hw_ver = hw_ver_unknown;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is unknown.\n", FBM320_NAME);
-#endif//DEBUG_FBM320		
-		break;
-	}
-	return err;
-}
-static int32_t fbm320_set_oversampling_rate(struct fbm320_data *barom
-        , enum fbm320_osr osr_setting)
-{
-	uint8_t reg_addr;
-	uint8_t data_buf;
-
-	barom->oversampling_rate = osr_setting;
-#ifdef DEBUG_FBM320
-	printf("Setting of oversampling_rate:%#x\r\n", barom->oversampling_rate);
-#endif//DEBUG_FBM320			
-
-	/* Setting conversion time for pressure measurement */
-	switch (osr_setting) {
-	case osr_1024:
-		barom->cnvTime_press = FBM320_CONVERSION_usTIME_OSR1024;
-		barom->cmd_start_p = FBM320_MEAS_PRESS_OVERSAMP_0;
-		break;
-	case osr_2048:
-		barom->cnvTime_press = FBM320_CONVERSION_usTIME_OSR2048;
-		barom->cmd_start_p = FBM320_MEAS_PRESS_OVERSAMP_1;
-		break;
-	case osr_4096:
-		barom->cnvTime_press = FBM320_CONVERSION_usTIME_OSR4096;
-		barom->cmd_start_p = FBM320_MEAS_PRESS_OVERSAMP_2;
-		break;
-	case osr_8192:
-		barom->cnvTime_press = FBM320_CONVERSION_usTIME_OSR8192;
-		barom->cmd_start_p = FBM320_MEAS_PRESS_OVERSAMP_3;
-		break;
-	case osr_16384:
-		barom->cnvTime_press = FBM320_CONVERSION_usTIME_OSR16384;
-		reg_addr = 0xa6;
-		barom->bus_read(reg_addr, sizeof(uint8_t), &data_buf);
-		data_buf &= 0xf8;
-		data_buf |= 0x6;
-		barom->bus_write(reg_addr, sizeof(uint8_t), &data_buf);
-		barom->cmd_start_p = FBM320_MEAS_PRESS_OVERSAMP_2;
-		barom->bus_read(0xA6, sizeof(uint8_t), &data_buf);
-#ifdef DEBUG_FBM320
-		printf("reg_0xA6:%#x\n\r", data_buf);
 #endif//DEBUG_FBM320
+        version = hw_ver_unknown;
 		break;
 	}
-	/* Setting covversion time for temperature measurement */
-	barom->cnvTime_temp = FBM320_CONVERSION_usTIME_OSR1024;
-
-	return 0;
+	return version;
 }
-static int32_t fbm320_chipid_check(struct fbm320_data *barom)
+
+static int32_t fbm320_chipid_check(void)
 {
 	int32_t err;
 	uint8_t chip_id_read;
 
-	err = barom->bus_read(FBM320_CHIP_ID_REG, sizeof(uint8_t), &chip_id_read);
+	err = FBM320_BUS_READ(FBM320_CHIP_ID_REG, sizeof(uint8_t), &chip_id_read);       
 #ifdef DEBUG_FBM320
 	printf("%s: chip_id reading is %#x \n", FBM320_NAME, chip_id_read);
 #endif//DEBUG_FBM320
 
-	if (chip_id_read != FBM320_CHIP_ID) {
+	if (chip_id_read != FBM320_CHIP_ID) 
 		err = -1;
-		return err;
-//		goto err_chip_id_chk;
-	} else {
-		barom->chip_id = chip_id_read;
-		return err = 0;
-	}
+	else err = 0;
+	
+    return err;
 }
 /**
  * @brief      { API for triggering measurement procedure and updating
@@ -637,12 +582,12 @@ static int32_t fbm320_chipid_check(struct fbm320_data *barom)
  */
 void fbm320_update_data(void)
 {
-	static uint32_t t_start_flag = 0;
-	static uint32_t p_start_flag = 0;
-	static uint32_t tick_current;
-	static uint32_t tick_last;
-	static uint32_t tick_diff;
-
+	static uint8_t t_start_flag = 0;
+	static uint8_t p_start_flag = 0;
+	static uint16_t tick_current;
+	static uint16_t tick_last;
+	static uint16_t tick_diff;
+	
 	tick_current = TMR0_Ticks;
 	tick_diff = tick_current - tick_last;
 
@@ -655,17 +600,17 @@ void fbm320_update_data(void)
 		t_start_flag = 1;
 		tick_last = TMR0_Ticks;
 	}
-	else if ((tick_diff * 1000 > barom->cnvTime_temp ) && (p_start_flag == 0))
+	else if ((tick_diff * 1000 > FBM320_CONVERSION_TIME_TEMP ) && (p_start_flag == 0))
 	{
 #ifdef DEBUG_FBM320
-		printf("start p_measurement\r\n");
+		printf("start p_measurement\r\n");		
 #endif//DEBUG_FBM320		
 		fbm320_get_raw_temperature(barom);
 		fbm320_startMeasure_press(barom);
 		p_start_flag = 1;
 		tick_last = TMR0_Ticks;
 	}
-	else if (tick_diff * 1000 > barom->cnvTime_press )
+	else if (tick_diff * 1000 > FBM320_CONVERSION_TIME_PRESS )
 	{
 #ifdef DEBUG_FBM320
 		printf("read pressure\r\n");
@@ -700,10 +645,10 @@ void fbm320_update_data(void)
 static int fbm320_calculation(struct fbm320_data *barom)
 {
 	struct fbm320_calibration_data *cali = &barom->calibration;
-	int32_t X01, X02, X03, X11, X12, X13, X21, X22, X23, X24, X25, X26;
+	int32_t X01, X02, X03, X11, X12, X13, X21, X22, X23, X24, X25, X26;	
 	int32_t PP1, PP2, PP3, PP4, CF, X31, X32;
 	int32_t RT, RP, UT, UP, DT, DT2;
-
+		
 	/* calculation for real temperature value*/
 	UT = barom->raw_temperature;
 	DT = ((UT - 8388608) >> 4) + (cali->C0 << 4);
@@ -712,9 +657,10 @@ static int fbm320_calculation(struct fbm320_data *barom)
 	X03 = (((((cali->C3 * DT) >> 18) * DT) >> 18) * DT);
 	DT2 = (X01 + X02 + X03) >> 12;
 	RT =  ((2500 << 15) - X01 - X02 - X03) >> 15;
+
 	/* calculation for real pressure value*/
 	UP = barom->raw_pressure;
-	X11 = ((cali->C5 - 15446) * DT2);
+	X11 = ((cali->C5 - 15446L) * DT2);
 	X12 = ((((cali->C6 - 4096L) * DT2) >> 16) * DT2) >> 4;
 	X13 = ((X11 + X12) >> 11) + ((cali->C4 - 122684) << 4);
 	X21 = ((cali->C8 + 1528L) * DT2) >> 11;

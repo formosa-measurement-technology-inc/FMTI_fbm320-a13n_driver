@@ -67,7 +67,6 @@
 #define FBM320_CONVERSION_usTIME_OSR2048   3700  /*us*/
 #define FBM320_CONVERSION_usTIME_OSR4096   6000  /*us*/
 #define FBM320_CONVERSION_usTIME_OSR8192   10700 /*us*/
-#define FBM320_CONVERSION_usTIME_OSR16384   20500 /*us*/
 
 /* Calibration registers */
 #define FBM320_CALIBRATION_DATA_START0	 0xaa /* Calibraton data address
@@ -86,16 +85,20 @@
 #endif
 
 struct fbm320_calibration_data {
-	int32_t C0, C1, C2, C3, C4, C5, C6, C7, \
-	C8, C9, C10, C11, C12;
+    uint16_t C0, C1, C2, C3;
+    uint32_t C4;
+    uint16_t C5, C6;
+    uint32_t C7;
+    uint16_t C8, C9, C10;
+    uint8_t C11, C12;
+//28bytes    
 };
 
 enum fbm320_osr {
 	osr_1024 = 0x0,
 	osr_2048 = 0x1,
 	osr_4096 = 0x2,
-	osr_8192 = 0x3,
-	osr_16384 = 0x4
+	osr_8192 = 0x3,   
 };
 
 enum fbm320_hw_version {
@@ -108,32 +111,17 @@ enum fbm320_hw_version {
 };
 
 struct fbm320_data {
-	enum fbm320_osr oversampling_rate;
 	struct fbm320_calibration_data calibration;
-	enum  fbm320_hw_version hw_ver;
-	uint8_t	chip_id;
-	uint8_t	cmd_start_p;
-	uint8_t	cmd_start_t;
-	uint32_t	cnvTime_temp; //unit:us
-	uint32_t	cnvTime_press; //unit:us
 	uint32_t	raw_temperature;
 	uint32_t	raw_pressure;
 	int32_t	real_temperature; //unit:0.01 degree Celsisu
-	int32_t	real_pressure; //unit:0.125 Pa
-	/* bus read function pointer */
-	uint8_t (*bus_read)(uint8_t reg_addr, uint32_t cnt, uint8_t *reg_data);
-	/* bus write function pointer */
-	uint8_t (*bus_write)(uint8_t reg_addr, uint32_t cnt, const uint8_t *reg_data);
-	/* delay function pointer */
-	void (*delay_usec)(uint32_t us);
+	int32_t	real_pressure; //unit:Pa	
 };
 
 int8_t fbm320_init(void);
-int32_t fbm320_read_raw_t(void);
-int32_t fbm320_read_raw_p(void);
 void fbm320_read_data(int32_t *real_pressure, int32_t *real_temperature);
-float fbm320_read_temperature(void);
-float fbm320_read_pressure(void);
+//float fbm320_read_temperature(void);
+//float fbm320_read_pressure(void);
 void fbm320_update_data(void);
 
 #endif
