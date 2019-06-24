@@ -679,7 +679,7 @@ static int fbm320_calculation(struct fbm320_data *barom)
 	PP3 = ((X26 & 0xFFF) * PP1) >> 13;
 	PP4 = (PP2 + PP3) >> 3;
 	CF = (2097152 + cali->C12 * DT2) >> 2;
-	X31 = ((CF * cali->C10) * PP4) >> 6;
+	X31 = (((CF * cali->C10) >> 22) * PP4) >> 6;
 	X32 = (((((CF * cali->C11) >> 20) * PP4) >> 22) * PP4);
 	RP = ((X31 + X32) >> 11) + PP4 + 100000;
 
