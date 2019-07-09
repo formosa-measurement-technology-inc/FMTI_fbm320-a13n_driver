@@ -22,14 +22,13 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <NUC123.h>
-#include "gpio_i2c.h"
+#include <NUC123.h> //MCU specific header files
 
+/* Data bus definition */
 #define I2C
-//#define GPIO_I2C
 //#define SPI
-#define FBM320_NAME     "fbm320"
+
+#define DEVICE_NAME     "fbm320-a13n"
 #define FBM320_CHIP_ID  0x42
 //#define DEBUG_FBM320  //Enable debug mode
 
@@ -54,6 +53,17 @@
 #define FBM320_SOFTRESET_REG    0xe0
 #define FBM320_CHIP_ID_REG	  0x6b
 #define FBM320_VERSION_REG	  0xa5
+#define FBM320_P_CONFIG_REG	  0xa6
+#define FBM320_P_CONFIG_REG_GAIN_POS (3)
+#define FBM320_P_CONFIG_REG_GAIN_MAK (7 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X1 (0 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X2 (1 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X4 (2 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X8 (3 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X16 (4 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X32 (5 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X64 (6 << FBM320_P_CONFIG_REG_GAIN_POS)
+#define FBM320_P_CONFIG_REG_GAIN_X128 (7 << FBM320_P_CONFIG_REG_GAIN_POS)
 
 /* CMD list */
 #define FBM320_MEAS_TEMP		        0x2e /* 2.5ms wait for measurement */
@@ -85,9 +95,12 @@
 #define FBM320_SPI_4BYTE 0x60
 #endif
 
+extern volatile uint32_t TMR0_Ticks;
+extern volatile uint32_t fbm320_update_rdy;
+
 struct fbm320_calibration_data {
-	int32_t C0, C1, C2, C3, C4, C5, C6, C7, \
-	C8, C9, C10, C11, C12;
+	int32_t C0, C1, C2, C3, C4, C5, C6, C7,\
+	        C8, C9, C10, C11, C12;	    
 };
 
 enum fbm320_osr {
@@ -100,10 +113,6 @@ enum fbm320_osr {
 
 enum fbm320_hw_version {
 	hw_ver_b1 = 0x0,
-	hw_ver_b2 = 0x1,
-	hw_ver_b3 = 0x3,
-	hw_ver_b4 = 0x5,
-	hw_ver_b5 = 0x6,
 	hw_ver_unknown = 0xFF
 };
 
@@ -119,7 +128,7 @@ struct fbm320_data {
 	uint32_t	raw_temperature;
 	uint32_t	raw_pressure;
 	int32_t	real_temperature; //unit:0.01 degree Celsisu
-	int32_t	real_pressure; //unit:0.125 Pa
+	int32_t	real_pressure; //unit:Pa
 	/* bus read function pointer */
 	uint8_t (*bus_read)(uint8_t reg_addr, uint32_t cnt, uint8_t *reg_data);
 	/* bus write function pointer */
