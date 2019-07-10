@@ -39,7 +39,7 @@
  * static uint8_t fbm320_i2c_writeblock(uint8_t reg_addr, uint32_t cnt, const uint8_t *reg_data)
  * static uint8_t fbm320_i2c_readblock(uint8_t reg_addr, uint32_t cnt, uint8_t *reg_data)
  * static void fbm320_us_delay(uint32_t us)
- * 
+ *
  * 2. This driver need a timer interrupt per millisecond for updating barometer data.
  * 3. Setting slave i2c address.
  *    { I2C 7bit address setting for fbm320 }
@@ -112,8 +112,7 @@ static uint8_t fbm320_spi_writeblock(uint8_t reg_addr, uint32_t cnt, const uint8
 	SPI_WRITE_TX0(SPI0, (reg_addr + (cnt - 1)));
 	SPI_TRIGGER(SPI0);
 	while (SPI_IS_BUSY(SPI0));
-	for (i = 0; i < cnt; i++)
-	{
+	for (i = 0; i < cnt; i++) {
 		SPI_WRITE_TX0(SPI0, *(reg_data + i));
 		SPI_TRIGGER(SPI0);
 		/* Check SPI0 busy status */
@@ -153,8 +152,7 @@ static uint8_t fbm320_spi_readblock(uint8_t reg_addr, uint32_t cnt, uint8_t *reg
 	SPI_WRITE_TX0(SPI0, reg_addr + (cnt - 1));
 	SPI_TRIGGER(SPI0);
 	while (SPI_IS_BUSY(SPI0));
-	for (i = (cnt - 1); i >= 0; i--)
-	{
+	for (i = (cnt - 1); i >= 0; i--) {
 		SPI_WRITE_TX0(SPI0, 0x00);//dummy clock
 		SPI_TRIGGER(SPI0);
 		while (SPI_IS_BUSY(SPI0));
@@ -289,7 +287,7 @@ err_read_otp:
 #ifdef DEBUG_FBM320
 	printf("%s:fbm320_init() failed!; fbm320 otp reading failed!,err:%d\n", __func__, err);
 #endif
-	return err;	
+	return err;
 }
 
 int32_t fbm320_read_raw_t(void)
@@ -447,7 +445,7 @@ static int32_t fbm320_read_store_otp_data(struct fbm320_data *barom)
 	if (status < 0)
 		goto exit;
 	/* Read OTP data here */
-	R[0] = (tmp[0] << 8 | tmp[1]); 
+	R[0] = (tmp[0] << 8 | tmp[1]);
 	R[1] = (tmp[2] << 8 | tmp[3]);
 	R[2] = (tmp[4] << 8 | tmp[5]);
 	R[3] = (tmp[6] << 8 | tmp[7]);
@@ -533,13 +531,13 @@ static int32_t fbm320_version_identification(struct fbm320_data *barom)
 		barom->hw_ver = hw_ver_b1;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is B1.\n", __func__);
-#endif		
+#endif
 		break;
 	default:
 		barom->hw_ver = hw_ver_unknown;
 #ifdef DEBUG_FBM320
 		printf("%s: The version of sensor is unknown.\n", __func__);
-#endif		
+#endif
 		break;
 	}
 	return err;
@@ -553,7 +551,7 @@ static int32_t fbm320_set_oversampling_rate(struct fbm320_data *barom
 	barom->oversampling_rate = osr_setting;
 #ifdef DEBUG_FBM320
 	printf("%s:Setting of oversampling_rate:%#x\r\n", __func__, barom->oversampling_rate);
-#endif			
+#endif
 
 	/* Setting conversion time for pressure measurement */
 	switch (osr_setting) {
@@ -625,30 +623,25 @@ void fbm320_update_data(void)
 	tick_current = TMR0_Ticks;
 	tick_diff = tick_current - tick_last;
 
-	if (t_start_flag == 0 && !fbm320_update_rdy)
-	{
+	if (t_start_flag == 0 && !fbm320_update_rdy) {
 #ifdef DEBUG_FBM320
 		printf("start t_measurement\r\n");
-#endif		
+#endif
 		fbm320_startMeasure_temp(barom);
 		t_start_flag = 1;
 		tick_last = TMR0_Ticks;
-	}
-	else if ((tick_diff * 1000 > barom->cnvTime_temp ) && (p_start_flag == 0))
-	{
+	} else if ((tick_diff * 1000 > barom->cnvTime_temp ) && (p_start_flag == 0)) {
 #ifdef DEBUG_FBM320
 		printf("start p_measurement\r\n");
-#endif		
+#endif
 		fbm320_get_raw_temperature(barom);
 		fbm320_startMeasure_press(barom);
 		p_start_flag = 1;
 		tick_last = TMR0_Ticks;
-	}
-	else if (tick_diff * 1000 > barom->cnvTime_press )
-	{
+	} else if (tick_diff * 1000 > barom->cnvTime_press ) {
 #ifdef DEBUG_FBM320
 		printf("read pressure\r\n");
-#endif		
+#endif
 		fbm320_get_raw_pressure(barom);
 		t_start_flag = 0;
 		p_start_flag = 0;
@@ -661,7 +654,7 @@ void fbm320_update_data(void)
 	printf("tick_current:%d\r\n", tick_current);
 	printf("tick_last:%d\r\n", tick_last);
 	printf("FBM320 is updating %d\r\n", TMR0_Ticks);
-#endif	
+#endif
 	return ;
 }
 /**
@@ -690,10 +683,10 @@ static int fbm320_calculation(struct fbm320_data *barom)
 	X02 = ((((cali->C2 - 256L) * DT) >> 14) * DT) >> 4;
 	X03 = (((((cali->C3 * DT) >> 18) * DT) >> 18) * DT);
 	DT2 = (X01 + X02 + X03) >> 12;
-	RT =  ((2500 << 15) - X01 - X02 - X03) >> 15;
+	RT =  ((2500L << 15) - X01 - X02 - X03) >> 15;
 	/* calculation for real pressure value*/
 	UP = barom->raw_pressure;
-	X11 = ((cali->C5 - 15446) * DT2);
+	X11 = ((cali->C5 - 15446L) * DT2);
 	X12 = ((((cali->C6 - 4096L) * DT2) >> 16) * DT2) >> 4;
 	X13 = ((X11 + X12) >> 11) + ((cali->C4 - 122684) << 4);
 	X21 = ((cali->C8 + 1528L) * DT2) >> 11;
@@ -702,10 +695,7 @@ static int fbm320_calculation(struct fbm320_data *barom)
 
 	X24 = (X23 >> 11) * (cali->C7 + 596352);
 	X25 = ((X23 & 0x7FF) * (cali->C7 + 596352)) >> 11;
-	if ((X22 - X21) < 0)
-		X26 = ((0 - X24 - X25) >> 9) + cali->C7 + 596352;
-	else
-		X26 = ((X24 + X25) >> 9) + cali->C7 + 596352;
+	X26 = (X21 >= X22 ? ((0 - X24 - X25) >> 9) : ((X24 + X25) >> 9)) + cali->C7 + 596352;
 
 	PP1 = (((UP - 8388608) >> 1) - X13) >> 4;
 	PP2 = ((X26 >> 12) * PP1) >> 1;
