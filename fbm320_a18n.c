@@ -59,8 +59,8 @@
 #include "fbm320_a18n.h"
 
 #ifdef SPI
-#define FBM320_BUS_READ fbm320_spi_writeblock 
-#define FBM320_BUS_WRITE fbm320_spi_readblock
+#define FBM320_BUS_READ fbm320_spi_readblock
+#define FBM320_BUS_WRITE fbm320_spi_writeblock
 #endif
 #if defined(I2C) || defined(GPIO_I2C)
 #define FBM320_BUS_READ fbm320_i2c_readblock 
@@ -88,8 +88,8 @@ If sampling rate is setted as OSR_8192:
 #define FBM320_CONVERSION_TIME_PRESS FBM320_CONVERSION_usTIME_OSR1024   
 #define FBM320_CMD_START_PRESS FBM320_MEAS_PRESS_OVERSAMP_0
 
-extern volatile uint32_t TMR0_Ticks;
-extern volatile uint32_t fbm320_update_rdy;
+volatile uint32_t TMR0_Ticks;
+volatile uint32_t fbm320_update_rdy;
 
 //static void fbm320_us_delay(uint32_t us);
 #ifdef SPI
@@ -368,7 +368,7 @@ static int32_t fbm320_get_raw_temperature(struct fbm320_data *barom)
 	barom->raw_temperature = (buf[0] * 256 * 256) + (buf[1] * 256) + buf[2];
 
 #ifdef DEBUG_FBM320
-	printf("%s: uncompensated temperature: %d\n", FBM320_NAME, barom->raw_temperature);
+	printf("%s: uncompensated temperature: %d\n", DEVICE_NAME, barom->raw_temperature);
 #endif//DEBUG_FBM320
 	return err;
 }
@@ -409,7 +409,7 @@ static int32_t fbm320_get_raw_pressure(struct fbm320_data *barom)
 	barom->raw_pressure = (buf[0] * 256 * 256) + (buf[1] * 256) + buf[2];
 
 #ifdef DEBUG_FBM320
-	printf("%s: uncompensated pressure:  %d\n", FBM320_NAME, barom->raw_pressure);
+	printf("%s: uncompensated pressure:  %d\n", DEVICE_NAME, barom->raw_pressure);
 #endif//DEBUG_FBM320
 
 	return err;
@@ -471,29 +471,29 @@ static int8_t fbm320_read_store_otp_data(struct fbm320_data *barom)
 	cali->C12 = ((R[0] & 0xC) << 1) | (R[7] & 0x7);
 
 #ifdef DEBUG_FBM320
-	printf("%s: R0= %#x\n", FBM320_NAME, R[0]);
-	printf("%s: R1= %#x\n", FBM320_NAME, R[1]);
-	printf("%s: R2= %#x\n", FBM320_NAME, R[2]);
-	printf("%s: R3= %#x\n", FBM320_NAME, R[3]);
-	printf("%s: R4= %#x\n", FBM320_NAME, R[4]);
-	printf("%s: R5= %#x\n", FBM320_NAME, R[5]);
-	printf("%s: R6= %#x\n", FBM320_NAME, R[6]);
-	printf("%s: R7= %#x\n", FBM320_NAME, R[7]);
-	printf("%s: R8= %#x\n", FBM320_NAME, R[8]);
-	printf("%s: R9= %#x\n", FBM320_NAME, R[9]);
-	printf("%s: C0= %d\n", FBM320_NAME, cali->C0);
-	printf("%s: C1= %d\n", FBM320_NAME, cali->C1);
-	printf("%s: C2= %d\n", FBM320_NAME, cali->C2);
-	printf("%s: C3= %d\n", FBM320_NAME, cali->C3);
-	printf("%s: C4= %d\n", FBM320_NAME, cali->C4);
-	printf("%s: C5= %d\n", FBM320_NAME, cali->C5);
-	printf("%s: C6= %d\n", FBM320_NAME, cali->C6);
-	printf("%s: C7= %d\n", FBM320_NAME, cali->C7);
-	printf("%s: C8= %d\n", FBM320_NAME, cali->C8);
-	printf("%s: C9= %d\n", FBM320_NAME, cali->C9);
-	printf("%s: C10= %d\n", FBM320_NAME, cali->C10);
-	printf("%s: C11= %d\n", FBM320_NAME, cali->C11);
-	printf("%s: C12= %d\n", FBM320_NAME, cali->C12);
+	printf("%s: R0= %#x\n", DEVICE_NAME, R[0]);
+	printf("%s: R1= %#x\n", DEVICE_NAME, R[1]);
+	printf("%s: R2= %#x\n", DEVICE_NAME, R[2]);
+	printf("%s: R3= %#x\n", DEVICE_NAME, R[3]);
+	printf("%s: R4= %#x\n", DEVICE_NAME, R[4]);
+	printf("%s: R5= %#x\n", DEVICE_NAME, R[5]);
+	printf("%s: R6= %#x\n", DEVICE_NAME, R[6]);
+	printf("%s: R7= %#x\n", DEVICE_NAME, R[7]);
+	printf("%s: R8= %#x\n", DEVICE_NAME, R[8]);
+	printf("%s: R9= %#x\n", DEVICE_NAME, R[9]);
+	printf("%s: C0= %d\n", DEVICE_NAME, cali->C0);
+	printf("%s: C1= %d\n", DEVICE_NAME, cali->C1);
+	printf("%s: C2= %d\n", DEVICE_NAME, cali->C2);
+	printf("%s: C3= %d\n", DEVICE_NAME, cali->C3);
+	printf("%s: C4= %d\n", DEVICE_NAME, cali->C4);
+	printf("%s: C5= %d\n", DEVICE_NAME, cali->C5);
+	printf("%s: C6= %d\n", DEVICE_NAME, cali->C6);
+	printf("%s: C7= %d\n", DEVICE_NAME, cali->C7);
+	printf("%s: C8= %d\n", DEVICE_NAME, cali->C8);
+	printf("%s: C9= %d\n", DEVICE_NAME, cali->C9);
+	printf("%s: C10= %d\n", DEVICE_NAME, cali->C10);
+	printf("%s: C11= %d\n", DEVICE_NAME, cali->C11);
+	printf("%s: C12= %d\n", DEVICE_NAME, cali->C12);
 #endif//DEBUG_FBM320
 
 exit:
@@ -521,38 +521,38 @@ static int8_t fbm320_version_identification(void)
 
 	version = ((buf[0] & 0xC0) >> 6) | ((buf[1] & 0x70) >> 2);
 #ifdef DEBUG_FBM320
-	printf("%s: The value of version= %#x\n", FBM320_NAME, version);
+	printf("%s: The value of version= %#x\n", DEVICE_NAME, version);
 #endif//DEBUG_FBM320
 
 	switch (version)	{
 	case hw_ver_b1:
 #ifdef DEBUG_FBM320
-		printf("%s: The version of sensor is B1.\n", FBM320_NAME);
+		printf("%s: The version of sensor is B1.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b2:
 #ifdef DEBUG_FBM320
-		printf("%s: The version of sensor is B2.\n", FBM320_NAME);
+		printf("%s: The version of sensor is B2.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320			
 		break;
 	case hw_ver_b3:
 #ifdef DEBUG_FBM320
-		printf("%s: The version of sensor is B3.\n", FBM320_NAME);
+		printf("%s: The version of sensor is B3.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b4:
 #ifdef DEBUG_FBM320
-		printf("%s: The version of sensor is B4.\n", FBM320_NAME);
+		printf("%s: The version of sensor is B4.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b5:
 #ifdef DEBUG_FBM320
-		printf("%s: The version of sensor is B5.\n", FBM320_NAME);
+		printf("%s: The version of sensor is B5.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	default:
 #ifdef DEBUG_FBM320
-		printf("%s: The version of sensor is unknown.\n", FBM320_NAME);
+		printf("%s: The version of sensor is unknown.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320
         version = hw_ver_unknown;
 		break;
@@ -567,7 +567,7 @@ static int32_t fbm320_chipid_check(void)
 
 	err = FBM320_BUS_READ(FBM320_CHIP_ID_REG, sizeof(uint8_t), &chip_id_read);       
 #ifdef DEBUG_FBM320
-	printf("%s: chip_id reading is %#x \n", FBM320_NAME, chip_id_read);
+	printf("%s: chip_id reading is %#x \n", DEVICE_NAME, chip_id_read);
 #endif//DEBUG_FBM320
 
 	if (chip_id_read != FBM320_CHIP_ID) 
@@ -687,7 +687,7 @@ static int fbm320_calculation(struct fbm320_data *barom)
 	barom->real_pressure = RP;
 
 #ifdef DEBUG_FBM320
-	printf("%s: calibrated pressure: %d\n", FBM320_NAME, RP);
+	printf("%s: calibrated pressure: %d\n", DEVICE_NAME, RP);
 #endif//DEBUG_FBM320
 
 	return 0;

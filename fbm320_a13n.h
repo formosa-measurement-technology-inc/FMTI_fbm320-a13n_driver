@@ -29,7 +29,7 @@
 #define I2C
 //#define GPIO_I2C
 //#define SPI
-#define FBM320_NAME     "fbm320"
+#define DEVICE_NAME     "fbm320-a13n"
 #define FBM320_CHIP_ID  0x42
 //#define DEBUG_FBM320  //Enable debug mode
 
@@ -83,6 +83,9 @@
 #define FBM320_SPI_3BYTE 0x40
 #define FBM320_SPI_4BYTE 0x60
 #endif
+
+extern volatile uint32_t TMR0_Ticks;
+extern volatile uint32_t fbm320_update_rdy;
 
 struct fbm320_calibration_data {
     uint16_t C0, C1, C2, C3;
