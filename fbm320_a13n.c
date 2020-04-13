@@ -217,6 +217,14 @@ int8_t fbm320_init(void)
 #ifdef SPI
 	fbm320_barom.bus_write = fbm320_spi_writeblock;
 	fbm320_barom.bus_read = fbm320_spi_readblock;
+	/* The default of SPI is in 3 wires mode after power on reset. If 4 wires SPI
+    mode is preffered, the following statements will be needed. */
+    #define SPI_4_WIRES_MODE
+	#ifdef SPI_4_WIRES_MODE
+		/* Set SPI bus as 4 wires mode */
+		data_buf = FBM320_SPI_CTRL_REG_SDO_ACTIVE_EN;
+		barom->bus_write(FBM320_SPI_CTRL_REG, sizeof(uint8_t), &data_buf);
+	#endif
 #else
 	fbm320_barom.bus_write = fbm320_i2c_writeblock;
 	fbm320_barom.bus_read = fbm320_i2c_readblock;
@@ -369,7 +377,7 @@ static int32_t fbm320_get_raw_temperature(struct fbm320_data *barom)
 	uint8_t buf[3] = {0};
 
 	err = barom->bus_read(FBM320_READ_MEAS_REG_U, 3 * sizeof(uint8_t), buf);
-	barom->raw_temperature = (buf[0] * 256 * 256) + (buf[1] * 256) + buf[2];
+	barom->raw_temperature = ((uint32_t)buf[0] << 16) + ((uint32_t)buf[1] << 8) + buf[2];
 
 #ifdef DEBUG_FBM320
 	printf("%s: uncompensated temperature: %d\n", DEVICE_NAME, barom->raw_temperature);
@@ -409,8 +417,7 @@ static int32_t fbm320_get_raw_pressure(struct fbm320_data *barom)
 	uint8_t buf[3] = {0};
 
 	err = barom->bus_read(FBM320_READ_MEAS_REG_U, 3 * sizeof(uint8_t), buf);
-
-	barom->raw_pressure = (buf[0] * 256 * 256) + (buf[1] * 256) + buf[2];
+	barom->raw_pressure = ((uint32_t)buf[0] << 16) + ((uint32_t)buf[1] << 8) + buf[2];
 
 #ifdef DEBUG_FBM320
 	printf("%s: uncompensated pressure:  %d\n", DEVICE_NAME, barom->raw_pressure);
