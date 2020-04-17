@@ -478,7 +478,7 @@ static int32_t fbm320_read_store_otp_data(struct fbm320_data *barom)
 	cali->C11 = R[9] & 0xFF;
 	cali->C12 = ((R[0] & 0xC) << 1) | (R[7] & 0x7);
 
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 	printf("%s: R0= %#x\n", DEVICE_NAME, R[0]);
 	printf("%s: R1= %#x\n", DEVICE_NAME, R[1]);
 	printf("%s: R2= %#x\n", DEVICE_NAME, R[2]);
@@ -529,20 +529,20 @@ static int32_t fbm320_version_identification(struct fbm320_data *barom)
 	err = barom->bus_read(FBM320_VERSION_REG, sizeof(uint8_t), buf + 1);
 
 	version = ((buf[0] & 0xC0) >> 6) | ((buf[1] & 0x70) >> 2);
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 	printf("%s: The value of version: %#x\n", __func__, version);
 #endif
 
 	switch (version)	{
 	case hw_ver_b1:
 		barom->hw_ver = hw_ver_b1;
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is B1.\n", __func__);
 #endif
 		break;
 	default:
 		barom->hw_ver = hw_ver_unknown;
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is unknown.\n", __func__);
 #endif
 		break;
