@@ -481,7 +481,7 @@ static int8_t fbm320_read_store_otp_data(struct fbm320_data *barom)
 	cali->C11 = R[9] & 0xFF;
 	cali->C12 = ((R[0] & 0xC) << 1) | (R[7] & 0x7);
 
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 	printf("%s: R0= %#x\n", DEVICE_NAME, R[0]);
 	printf("%s: R1= %#x\n", DEVICE_NAME, R[1]);
 	printf("%s: R2= %#x\n", DEVICE_NAME, R[2]);
@@ -531,38 +531,38 @@ static int8_t fbm320_version_identification(void)
 	FBM320_BUS_READ(FBM320_VERSION_REG, sizeof(uint8_t), buf + 1);
 
 	version = ((buf[0] & 0xC0) >> 6) | ((buf[1] & 0x70) >> 2);
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 	printf("%s: The value of version= %#x\n", DEVICE_NAME, version);
 #endif//DEBUG_FBM320
 
-	switch (version)	{
+	switch (version) {
 	case hw_ver_b1:
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is B1.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b2:
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is B2.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320			
 		break;
 	case hw_ver_b3:
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is B3.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b4:
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is B4.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	case hw_ver_b5:
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is B5.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320		
 		break;
 	default:
-#ifdef DEBUG_FBM320
+#if defined(DEBUG_FBM320) || defined(MSG_LOG)
 		printf("%s: The version of sensor is unknown.\n", DEVICE_NAME);
 #endif//DEBUG_FBM320
         version = hw_ver_unknown;

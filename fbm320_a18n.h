@@ -32,6 +32,7 @@
 #define DEVICE_NAME     "fbm320-a18n"
 #define FBM320_CHIP_ID  0x42
 //#define DEBUG_FBM320  //Enable debug mode
+#define MSG_LOG
 
 /**
  * { I2C 7bit address setting for fbm320 }
